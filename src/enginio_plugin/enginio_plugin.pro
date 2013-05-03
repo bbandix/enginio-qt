@@ -1,7 +1,10 @@
 TARGETPATH = Enginio
 TARGET.module_name = Enginio
 
+CONFIG += force_independent building_plugin
+
 load(qml_plugin)
+include($$PWD/../../enginio.pri)
 
 TARGET = enginioplugin
 
@@ -37,7 +40,6 @@ lessThan(QT_MINOR_VERSION, 1) {
     DESTDIR = ../../qml/$${TARGET.module_name}$$qtPlatformTargetSuffix()
 }
 
-CONFIG += force_independent
 copy2build.input = QMLDIRFILE
 copy2build.output = ../../qml/$${TARGET.module_name}/qmldir
 !contains(TEMPLATE_PREFIX, vc):copy2build.variable_out = PRE_TARGETDEPS

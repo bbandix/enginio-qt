@@ -58,12 +58,14 @@ public slots:
     }
 
 private slots:
+    void initTestCase();
     void init();
     void query_todos();
     void query_todos_filter();
     void query_todos_limit();
     void query_todos_count();
     void query_todos_sort();
+    void users_crud();
     void query_users();
     void query_users_filter();
     void query_users_sort();
@@ -75,7 +77,6 @@ private slots:
     void query_usersgroupmembers_sort();
     void search();
     void create_todos();
-    void user_crud();
     void update_todos();
     void update_invalidId();
     void remove_todos();
@@ -168,6 +169,66 @@ private:
         }
     }
 };
+
+void tst_EnginioClient::initTestCase()
+{
+    // Create some users to be used in later tests
+    EnginioClient client;
+    QObject::connect(&client, SIGNAL(error(EnginioReply *)), this, SLOT(error(EnginioReply *)));
+    client.setBackendId(EnginioTests::TESTAPP_ID);
+    client.setBackendSecret(EnginioTests::TESTAPP_SECRET);
+    client.setApiUrl(EnginioTests::TESTAPP_URL);
+
+    QSignalSpy spy(&client, SIGNAL(finished(EnginioReply*)));
+    QSignalSpy spyError(&client, SIGNAL(error(EnginioReply*)));
+
+    QJsonObject obj;
+    QJsonObject query;
+    query["username"] = QStringLiteral("logintest");
+    obj["query"] = query;
+    spy.clear();
+
+    // Verify if the user already exists, since trying to recreate it would cause an error.
+    const EnginioReply *reqId = client.query(obj, EnginioClient::UserOperation);
+    QTRY_COMPARE(spy.count(), 1);
+    QCOMPARE(spyError.count(), 0);
+    QVERIFY(reqId);
+    QVERIFY(!reqId->data().isEmpty());
+    QVERIFY(!reqId->data()["results"].isUndefined());
+    QJsonArray data = reqId->data()["results"].toArray();
+
+    if (!data.count()) {
+        spy.clear();
+        query["password"] = QStringLiteral("logintest");
+        client.create(query, EnginioClient::UserOperation);
+        qDebug() << "Creating " << query;
+        QTRY_COMPARE(spy.count(), 1);
+        QCOMPARE(spyError.count(), 0);
+    }
+
+    for (int i = 1; i < 5; ++i) {
+        QJsonObject query;
+        query["username"] = QStringLiteral("logintest") + QString::number(i);
+        obj["query"] = query;
+        spy.clear();
+        reqId = client.query(obj, EnginioClient::UserOperation);
+        QTRY_COMPARE(spy.count(), 1);
+        QCOMPARE(spyError.count(), 0);
+        QVERIFY(reqId);
+        QVERIFY(!reqId->data().isEmpty());
+        QVERIFY(!reqId->data()["results"].isUndefined());
+        data = reqId->data()["results"].toArray();
+
+        if (!data.count()) {
+            spy.clear();
+            query["password"] = QStringLiteral("logintest") + QString::number(i);
+            client.create(query, EnginioClient::UserOperation);
+            qDebug() << "Creating " << query;
+            QTRY_COMPARE(spy.count(), 1);
+        }
+    }
+    QCOMPARE(spyError.count(), 0);
+}
 
 void tst_EnginioClient::init()
 {
@@ -713,9 +774,10 @@ void tst_EnginioClient::create_todos()
     QCOMPARE(data["objectType"], obj["objectType"]);
 }
 
-void tst_EnginioClient::user_crud()
+void tst_EnginioClient::users_crud()
 {
     EnginioClient client;
+    QObject::connect(&client, SIGNAL(error(EnginioReply *)), this, SLOT(error(EnginioReply *)));
     client.setBackendId(EnginioTests::TESTAPP_ID);
     client.setBackendSecret(EnginioTests::TESTAPP_SECRET);
     client.setApiUrl(EnginioTests::TESTAPP_URL);

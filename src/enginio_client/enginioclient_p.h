@@ -94,6 +94,8 @@ struct ENGINIOCLIENT_EXPORT EnginioString
     static const QString empty;
     static const QString complete;
     static const QString incomplete;
+    static const QString headers;
+    static const QString payload;
 };
 
 class ENGINIOCLIENT_EXPORT EnginioClientPrivate
@@ -431,6 +433,54 @@ public:
 
         if (gEnableEnginioDebugInfo)
             _requestData.insert(reply, data);
+
+        return reply;
+    }
+
+    QNetworkReply *customRequest(const QUrlQuery &query, const QByteArray &httpOperation, const QJsonObject &data)
+    {
+        Q_ASSERT(!path.isEmpty());
+        Q_ASSERT(!httpOperation.isEmpty());
+
+        QUrl url(m_serviceUrl);
+        url.setQuery(query);
+        QNetworkRequest req(_request);
+        req.setUrl(url);
+
+        if (data[EnginioString::headers].isArray()) {
+            QJsonArray headers = data[EnginioString::headers].toArray();
+            // TODO fix the header parsing, use QJsonObject::keys() instead of array.
+            foreach (const QJsonValue& headerPair, headers) {
+                QJsonArray header = headerPair.toArray();
+                if (!header.count() != 2)
+                    continue;
+
+                QByteArray headerName = header.first().toString().toUtf8();
+                QByteArray headerValue = header.last().toString().toUtf8();
+
+                qDebug() << headerName << ":" << headerValue;
+                req.setRawHeader(headerName, headerValue);
+            }
+        }
+
+        QBuffer *buffer = 0;
+        QByteArray payload;
+
+        if (data[EnginioString::payload].isObject()) {
+            ObjectAdaptor<QJsonObject> o(data[EnginioString::payload].toObject());
+            payload = o.toJson();
+            buffer = new QBuffer();
+            buffer->setData(payload);
+            buffer->open(QIODevice::ReadOnly);
+        }
+
+        QNetworkReply *reply = networkManager()->sendCustomRequest(req, httpOperation, buffer);
+
+        if (gEnableEnginioDebugInfo)
+            _requestData.insert(reply, payload);
+
+        if (buffer)
+            buffer->setParent(reply);
 
         return reply;
     }

@@ -133,6 +133,16 @@ QString EnginioReply::errorString() const
 }
 
 /*!
+  \property EnginioReply::requestId
+  This property holds the API request ID for the request.
+  The request ID is useful for end-to end tracking of requests and to identify notifications.
+*/
+QString EnginioReply::requestId() const
+{
+    return d->requestId();
+}
+
+/*!
   \property EnginioReply::data
   \brief The data returned from the backend
   This property holds the JSON data returned by the server after a successful request.
